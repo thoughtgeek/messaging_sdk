@@ -46,7 +46,7 @@ def test_list_contacts(client):
         responses.GET,
         f"{client.base_url}/contacts",
         json={
-            "contacts": [
+            "contactsList": [
                 {"id": "contact1", "name": "Alice", "phone": "+1111111111"},
                 {"id": "contact2", "name": "Bob", "phone": "+2222222222"},
             ],
@@ -60,8 +60,8 @@ def test_list_contacts(client):
 
     assert len(responses.calls) == 1
     request = responses.calls[0].request
-    assert 'page=1' in request.url
-    assert 'limit=10' in request.url
+    assert 'pageIndex=1' in request.url
+    assert 'max=10' in request.url
 
     assert isinstance(contacts, list)
     assert len(contacts) == 2
@@ -130,7 +130,7 @@ def test_validation_error(client):
 
     with pytest.raises(ValidationError) as exc_info:
         client.create_contact(name="John Doe", phone="invalid-phone")
-    assert "Invalid phone number" in str(exc_info.value)
+    assert "Phone number must be in E.164 format." in str(exc_info.value)
 
 
 @responses.activate

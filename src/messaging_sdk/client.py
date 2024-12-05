@@ -1,5 +1,6 @@
-from typing import Optional, List, Dict, Any
+import re
 import requests
+from typing import Optional, List, Dict, Any, Union, Callable
 
 from .models import Contact, Message
 from .exceptions import (
@@ -63,7 +64,7 @@ class MessagingClient:
     def send_message(
             self,
             from_number: str,
-            to_contact: str,
+            to_contact: Union[str, Dict[str, str]],
             content: str
     ) -> Message:
 
@@ -71,18 +72,21 @@ class MessagingClient:
 
         Args:
             from_number: The sender's phone number
-            to_contact: Either a Contact object or a contact ID
+            to_contact: Either a contact ID string or dict with name/phone
             content: The message content
 
         Returns:
             Message: The created message
         """
-        # Prepare the payload
-        payload = {
+        if isinstance(to_contact, str):
+            payload = {"to": {"id": to_contact}}
+        else:
+            payload = {"to": to_contact}
+
+        payload.update({
             "from": from_number,
-            "content": content,
-            "to": {"id": to_contact}
-        }
+            "content": content
+        })
 
         response = self.session.post(f"{self.base_url}/messages", json=payload)
         data = self._handle_response(response)
@@ -110,24 +114,24 @@ class MessagingClient:
 
     def create_contact(self, name: str, phone: str) -> Contact:
         """Create a new contact."""
+        if not re.match(r'^\+\d{1,15}$', phone):
+            raise ValidationError("Phone number must be in E.164 format.")
         payload = {"name": name, "phone": phone}
         response = self.session.post(f"{self.base_url}/contacts", json=payload)
         data = self._handle_response(response)
         return Contact(**data)
 
-    def list_contacts(
-        self, page: Optional[int] = None, limit: Optional[int] = None
-    ) -> List[Contact]:
+    def list_contacts(self, page: Optional[int] = None, limit: Optional[int] = None) -> List[Contact]:
         """List contacts with pagination."""
         params = {}
         if page is not None:
-            params["page"] = page
+            params["pageIndex"] = page
         if limit is not None:
-            params["limit"] = limit
+            params["max"] = limit
 
         response = self.session.get(f"{self.base_url}/contacts", params=params)
         data = self._handle_response(response)
-        return [Contact(**contact) for contact in data.get("contacts", [])]
+        return [Contact(**contact) for contact in data.get("contactsList", [])]
 
     def get_contact(self, contact_id: str) -> Contact:
         """Get a specific contact by ID."""
@@ -160,3 +164,7 @@ class MessagingClient:
             f"{self.base_url}/contacts/{contact_id}"
         )
         self._handle_response(response)
+
+def register_webhook_handler(self, callback: Callable[[Dict[str, Any]], None]) -> None:
+    """Register a callback for handling message delivery webhooks"""
+    self.webhook_handler = callback
