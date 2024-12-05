@@ -1,4 +1,4 @@
-from typing import Optional, List, Union, Dict, Any
+from typing import Optional, List, Dict, Any
 import requests
 
 from .models import Contact, Message
@@ -10,6 +10,7 @@ from .exceptions import (
     ServerError,
 )
 
+
 class MessagingClient:
     def __init__(self, api_key: str, base_url: str = "http://localhost:3000"):
         """Initialize the messaging client.
@@ -20,21 +21,33 @@ class MessagingClient:
         """
         self.base_url = base_url.rstrip("/")
         self.session = requests.Session()
-        self.session.headers.update({
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json"
-        })
+        self.session.headers.update(
+            {
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            }
+        )
 
-    def _handle_response(self, response: requests.Response) -> Optional[Dict[str, Any]]:
+    def _handle_response(
+            self,
+            response: requests.Response
+    ) -> Optional[Dict[str, Any]]:
+
         """Handle API response and errors."""
         if response.status_code == 401:
             raise AuthenticationError("Invalid API key")
         elif response.status_code == 403:
-            raise AuthenticationError("Forbidden: You don't have permission to access this resource.")
+            raise AuthenticationError(
+                "Forbidden: You don't have permission to access this resource."
+            )
         elif response.status_code == 400:
-            raise ValidationError(response.json().get("error", "Validation error"))
+            raise ValidationError(response.json().get(
+                "error", "Validation error"
+            ))
         elif response.status_code == 404:
-            raise NotFoundError(response.json().get("message", "Resource not found"))
+            raise NotFoundError(response.json().get(
+                "message", "Resource not found"
+            ))
         elif response.status_code >= 500:
             raise ServerError(response.json().get("message", "Server error"))
         elif response.status_code in (200, 201):
@@ -43,14 +56,17 @@ class MessagingClient:
             # No content to return; indicate success
             return None
         else:
-            raise MessagingError(f"Unexpected status code: {response.status_code}")
+            raise MessagingError(
+                f"Unexpected status code: {response.status_code}"
+            )
 
     def send_message(
-        self,
-        from_number: str,
-        to_contact: str,
-        content: str
+            self,
+            from_number: str,
+            to_contact: str,
+            content: str
     ) -> Message:
+
         """Send a new message.
 
         Args:
@@ -65,9 +81,7 @@ class MessagingClient:
         payload = {
             "from": from_number,
             "content": content,
-            "to": {
-                "id": to_contact
-            }
+            "to": {"id": to_contact}
         }
 
         response = self.session.post(f"{self.base_url}/messages", json=payload)
@@ -75,9 +89,7 @@ class MessagingClient:
         return Message(**data)
 
     def list_messages(
-        self,
-        page: Optional[int] = None,
-        limit: Optional[int] = None
+        self, page: Optional[int] = None, limit: Optional[int] = None
     ) -> List[Message]:
         """List sent messages with pagination."""
         params = {}
@@ -104,9 +116,7 @@ class MessagingClient:
         return Contact(**data)
 
     def list_contacts(
-        self,
-        page: Optional[int] = None,
-        limit: Optional[int] = None
+        self, page: Optional[int] = None, limit: Optional[int] = None
     ) -> List[Contact]:
         """List contacts with pagination."""
         params = {}
@@ -139,13 +149,14 @@ class MessagingClient:
             payload["phone"] = phone
 
         response = self.session.patch(
-            f"{self.base_url}/contacts/{contact_id}",
-            json=payload
+            f"{self.base_url}/contacts/{contact_id}", json=payload
         )
         data = self._handle_response(response)
         return Contact(**data)
 
     def delete_contact(self, contact_id: str) -> None:
         """Delete a contact."""
-        response = self.session.delete(f"{self.base_url}/contacts/{contact_id}")
+        response = self.session.delete(
+            f"{self.base_url}/contacts/{contact_id}"
+        )
         self._handle_response(response)
