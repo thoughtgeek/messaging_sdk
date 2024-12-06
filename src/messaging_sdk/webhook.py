@@ -1,65 +1,41 @@
-import hmac
-import hashlib
-from typing import Union
-
-from fastapi import FastAPI, Request, HTTPException
-
+import logging
+from flask import Flask, request, Response
+from .client import MessagingClient
 from .models import WebhookEvent
 
-class WebhookHandler:
-    def __init__(self, webhook_secret: str):
-        """Initialize the webhook handler.
-
-        Args:
-            webhook_secret: The secret used to verify webhook signatures
-        """
-        self.webhook_secret = webhook_secret
-
-    def verify_signature(self, signature: str, payload: Union[str, bytes]) -> bool:
-        """Verify the webhook signature.
-
-        Args:
-            signature: The signature from the Authorization header
-            payload: The raw request payload
-
-        Returns:
-            bool: True if the signature is valid
-        """
-        if isinstance(payload, str):
-            payload = payload.encode()
-
-        computed = hmac.new(
-            self.webhook_secret.encode(),
-            payload,
-            hashlib.sha256
-        ).hexdigest()
-
-        return hmac.compare_digest(computed, signature)
-
-def create_webhook_app(webhook_secret: str) -> FastAPI:
-    """Create a FastAPI application for handling webhooks.
+def create_webhook_server(client: MessagingClient, host: str = 'localhost', port: int = 3010) -> Flask:
+    """Create a Flask server to handle webhook events.
 
     Args:
-        webhook_secret: The secret used to verify webhook signatures
+        client: MessagingClient instance for signature verification
+        host: Host to bind the server to
+        port: Port to listen on
 
     Returns:
-        FastAPI: The configured FastAPI application
+        Flask: Configured Flask application
     """
-    app = FastAPI()
-    handler = WebhookHandler(webhook_secret)
+    app = Flask(__name__)
 
-    @app.post("/webhooks")
-    async def handle_webhook(request: Request):
-        signature = request.headers.get("Authorization")
+    # Configure logging
+    logging.basicConfig(level=logging.DEBUG)
+
+    @app.route('/webhooks', methods=['POST'])
+    def handle_webhook():
+        # Get signature from Authorization header
+        signature = request.headers.get('Authorization')
+
         if not signature:
-            raise HTTPException(status_code=401, detail="No signature provided")
+            return Response('Missing signature', status=401)
 
-        body = await request.body()
-        if not handler.verify_signature(signature, body):
-            raise HTTPException(status_code=401, detail="Invalid signature")
+        # Verify signature
+        if not client.verify_webhook_signature(signature, request.get_data()):
+            return Response('Invalid signature', status=401)
 
-        event = WebhookEvent.model_validate_json(body)
-        print(f"Received webhook event: {event.model_dump_json()}")
-        return {"status": "ok"}
+        # Parse and handle the event
+        event_data = request.get_json()
+        event = WebhookEvent(**event_data)
+        print(f"Received webhook event: {event}")
+
+        return Response(status=200)
 
     return app

@@ -7,7 +7,7 @@ from .exceptions import (
     NotFoundError,
     ServerError,
 )
-from .webhook import WebhookHandler
+from .webhook import create_webhook_server
 
 __version__ = "1.0.0"
 
@@ -22,5 +22,5 @@ __all__ = [
     "ValidationError",
     "NotFoundError",
     "ServerError",
-    "WebhookHandler",
+    "create_webhook_server",
 ]

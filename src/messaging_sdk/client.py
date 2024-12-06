@@ -1,5 +1,7 @@
 import re
 import requests
+import hmac
+import hashlib
 from typing import Optional, List, Dict, Any, Union, Callable
 
 from .models import Contact, Message
@@ -13,7 +15,7 @@ from .exceptions import (
 
 
 class MessagingClient:
-    def __init__(self, api_key: str, base_url: str = "http://localhost:3000"):
+    def __init__(self, api_key: str, webhook_secret: str = "mySecret", base_url: str = "http://localhost:3000"):
         """Initialize the messaging client.
 
         Args:
@@ -22,6 +24,7 @@ class MessagingClient:
         """
         self.base_url = base_url.rstrip("/")
         self.session = requests.Session()
+        self.webhook_secret = webhook_secret
         self.session.headers.update(
             {
                 "Authorization": f"Bearer {api_key}",
@@ -131,7 +134,7 @@ class MessagingClient:
 
         response = self.session.get(f"{self.base_url}/contacts", params=params)
         data = self._handle_response(response)
-        return [Contact(**contact) for contact in data.get("contactsList", [])]
+        return [Contact(**contact) for contact in data.get("contacts", [])]
 
     def get_contact(self, contact_id: str) -> Contact:
         """Get a specific contact by ID."""
@@ -165,6 +168,32 @@ class MessagingClient:
         )
         self._handle_response(response)
 
-def register_webhook_handler(self, callback: Callable[[Dict[str, Any]], None]) -> None:
-    """Register a callback for handling message delivery webhooks"""
-    self.webhook_handler = callback
+    def verify_webhook_signature(self, signature: str, body: Union[str, bytes, dict]) -> bool:
+        """Verify the webhook signature against the request body.
+
+        Args:
+            signature: The signature from the Authorization header
+            body: The raw request body
+
+        Returns:
+            bool: True if signature is valid, False otherwise
+        """
+        # Strip 'Signature ' prefix if present
+        if signature.startswith('Signature '):
+            signature = signature[len('Signature '):]
+
+        # Ensure the body is in bytes
+        if isinstance(body, dict):
+            body = json.dumps(body, separators=(',', ':')).encode()
+        elif isinstance(body, str):
+            body = body.encode()
+
+        # Compute HMAC SHA256 digest
+        computed = hmac.new(
+            self.webhook_secret.encode(),
+            body,
+            hashlib.sha256
+        ).hexdigest()
+
+        # Compare the computed signature with the one from the header
+        return hmac.compare_digest(computed, signature)

@@ -46,7 +46,7 @@ def test_list_contacts(client):
         responses.GET,
         f"{client.base_url}/contacts",
         json={
-            "contactsList": [
+            "contacts": [
                 {"id": "contact1", "name": "Alice", "phone": "+1111111111"},
                 {"id": "contact2", "name": "Bob", "phone": "+2222222222"},
             ],

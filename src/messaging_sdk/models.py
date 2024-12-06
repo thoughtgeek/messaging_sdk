@@ -28,7 +28,7 @@ class MessageStatus(BaseModel):
 class Message(BaseModel):
     id: Optional[str] = None
     from_: str = Field(alias="from")
-    to: dict
+    to: Union[str, dict]
     content: str
     status: Optional[str] = None
     created_at: Optional[datetime] = None
